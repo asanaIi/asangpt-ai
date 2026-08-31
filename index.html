@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ru" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AsanGPT — Гибридный ИИ Ассистент</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Markdown & MathJax support -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.firebaseApp = null;
+        window.firebaseAuth = null;
+        window.firebaseDb = null;
+        window.GoogleAuthProvider = GoogleAuthProvider;
+        window.signInWithPopup = signInWithPopup;
+        window.signOut = signOut;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.collection = collection;
+        window.doc = doc;
+        window.setDoc = setDoc;
+        window.getDoc = getDoc;
+        window.getDocs = getDocs;
+        window.deleteDoc = deleteDoc;
+
+        try {
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+                apiKey: "AIzaSyDummyKeyForPreviewModeOnly12345",
+                authDomain: "asangpt-app.firebaseapp.com",
+                projectId: "asangpt-app",
+                storageBucket: "asangpt-app.appspot.com",
+                messagingSenderId: "1234567890",
+                appId: "1:1234567890:web:abcdef"
+            };
+            window.firebaseApp = initializeApp(firebaseConfig);
+            window.firebaseAuth = getAuth(window.firebaseApp);
+            window.firebaseDb = getFirestore(window.firebaseApp);
+            window.appId = typeof __app_id !== 'undefined' ? __app_id : 'asangpt-default-app';
+
+            const initAuth = async () => {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(window.firebaseAuth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(window.firebaseAuth);
+                }
+            };
+            initAuth();
+
+            onAuthStateChanged(window.firebaseAuth, (user) => {
+                window.currentUser = user;
+                if (typeof window.onUserAuthStateChanged === 'function') {
+                    window.onUserAuthStateChanged(user);
+                }
+            });
+        } catch (e) {
+            console.warn("Firebase не инициализирован:", e);
+        }
+    </script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            900: '#064e3b',
+                        },
+                        gemini: {
+                            50: '#f5f3ff',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.2); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.4); }
+        .glass-panel { background: rgba(18, 18, 24, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .gemini-gradient-text { background: linear-gradient(135deg, #9333ea 0%, #3b82f6 50%, #10b981 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .gemini-gradient-bg { background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%); }
+        
+        .markdown-body pre { background: #0d1117; border: 1px solid #30363d; border-radius: 0.75rem; padding: 1rem; margin: 0.75rem 0; overflow-x: auto; }
+        .markdown-body code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.85rem; color: #34d399; background: #161b22; padding: 0.15rem 0.3rem; border-radius: 0.25rem; border: 1px solid #30363d; }
+        .markdown-body pre code { background: transparent; border: none; padding: 0; color: #e6edf3; }
+        .markdown-body p { margin-bottom: 0.75rem; }
+        .markdown-body p:last-child { margin-bottom: 0; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+        .markdown-body ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 { font-weight: 700; color: #f8fafc; margin-top: 1rem; margin-bottom: 0.5rem; }
+        .markdown-body h1 { font-size: 1.25rem; }
+        .markdown-body h2 { font-size: 1.1rem; }
+        .markdown-body h3 { font-size: 1rem; }
+        .markdown-body blockquote { border-left: 3px solid #8b5cf6; padding-left: 1rem; color: #94a3b8; margin: 0.75rem 0; }
+    </style>
+</head>
+<body class="bg-[#0e0f12] text-slate-100 h-full flex overflow-hidden selection:bg-gemini-500 selection:text-white">
+
+    <!-- ChatGPT-стиль боковая панель с историей -->
+    <aside id="sidebar" class="absolute inset-y-0 left-0 z-50 w-72 bg-[#14151a] border-r border-slate-800/80 flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0 md:static">
+        <div class="p-4 border-b border-slate-800/80 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-2xl gemini-gradient-bg flex items-center justify-center text-white shadow-lg shadow-purple-500/20">
+                    <i class="fa-solid fa-sparkles text-sm"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base tracking-tight text-white flex items-center space-x-1">
+                        <span>AsanGPT</span>
+                        <span class="text-[10px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full font-mono">Hybrid</span>
+                    </h1>
+                </div>
+            </div>
+            <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <div class="p-3">
+            <button onclick="startNewChat()" class="w-full bg-[#1e1f26] hover:bg-[#262831] border border-slate-700/60 text-slate-200 font-medium py-2.5 px-4 rounded-xl flex items-center justify-between transition-all shadow-sm active:scale-[0.98]">
+                <div class="flex items-center space-x-2.5">
+                    <i class="fa-solid fa-plus text-xs text-purple-400"></i>
+                    <span class="text-sm">Новый чат</span>
+                </div>
+                <i class="fa-regular fa-pen-to-square text-xs text-slate-400"></i>
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-3 py-2 space-y-1" id="chat-history-list">
+        </div>
+
+        <!-- Нижняя панель профиля и настроек -->
+        <div class="p-3 border-t border-slate-800/80 space-y-2 bg-[#121318]">
+            <div id="auth-section" class="flex items-center justify-between p-2 rounded-xl bg-[#1a1b22] border border-slate-800 text-xs">
+                <div id="user-info" class="flex items-center space-x-2 truncate">
+                    <i class="fa-solid fa-circle-user text-purple-400 text-base"></i>
+                    <span id="user-name" class="truncate text-slate-300">Гость</span>
+                </div>
+                <button id="auth-btn" onclick="toggleGoogleAuth()" class="px-2.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 transition-all font-medium">
+                    Войти
+                </button>
+            </div>
+
+            <button onclick="openSettingsModal()" class="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-[#1e1f26] transition-all text-sm font-medium">
+                <i class="fa-solid fa-gear text-slate-400"></i>
+                <span>Настройки и Модели</span>
+            </button>
+            <div class="flex items-center justify-between px-3 py-1 rounded-xl text-[11px] text-slate-500">
+                <span>IndexedDB + Cloud Sync</span>
+                <span class="font-mono text-emerald-400">Online</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Основная область в стиле Gemini -->
+    <main class="flex-1 flex flex-col h-full relative min-w-0 bg-[#0e0f12]">
+        
+        <!-- Верхняя панель в стиле Gemini с выбором модели -->
+        <header class="h-16 border-b border-slate-800/60 bg-[#0e0f12]/80 backdrop-blur-md px-4 flex items-center justify-between z-10">
+            <div class="flex items-center space-x-3">
+                <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-900">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <div class="flex items-center space-x-2">
+                    <!-- Селектор модели сверху в стиле Gemini -->
+                    <div class="relative inline-block text-left">
+                        <button onclick="toggleModelDropdown()" id="model-selector-btn" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-[#181920] hover:bg-[#20222b] border border-slate-800 text-sm font-medium text-slate-200 transition-all">
+                            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                            <span id="header-model-name">Gemini 2.5 Flash</span>
+                            <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
+                        </button>
+                        <div id="model-dropdown" class="hidden absolute left-0 mt-2 w-56 rounded-2xl bg-[#181920] border border-slate-800 shadow-2xl py-2 z-50">
+                            <button onclick="selectModel('gemini', 'Gemini 2.5 Flash')" class="w-full text-left px-4 py-2.5 text-sm hover:bg-purple-600/10 hover:text-purple-300 flex items-center justify-between">
+                                <span>Gemini 2.5 Flash</span>
+                                <i class="fa-solid fa-bolt text-xs text-purple-400"></i>
+                            </button>
+                            <button onclick="selectModel('claude', 'Claude 3.5 Sonnet')" class="w-full text-left px-4 py-2.5 text-sm hover:bg-purple-600/10 hover:text-purple-300 flex items-center justify-between">
+                                <span>Claude 3.5 Sonnet</span>
+                                <i class="fa-solid fa-code text-xs text-emerald-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <button onclick="clearCurrentChat()" class="text-slate-400 hover:text-rose-400 p-2 rounded-lg hover:bg-[#181920] transition-colors" title="Очистить чат">
+                    <i class="fa-solid fa-trash-can text-sm"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Контейнер сообщений -->
+        <div id="chat-container" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 max-w-4xl w-full mx-auto">
+            
+            <!-- Приветственный экран в стиле Gemini -->
+            <div id="welcome-screen" class="h-full flex flex-col justify-center max-w-2xl mx-auto space-y-8 my-auto px-4">
+                <div class="space-y-3">
+                    <h2 class="text-3xl sm:text-4xl font-bold tracking-tight gemini-gradient-text">Привет, я AsanGPT</h2>
+                    <p class="text-base text-slate-400">Чем я могу помочь вам сегодня? Задавайте любые вопросы по программированию, науке или математике.</p>
+                </div>
+
+                <!-- Карточки быстрых запросов (Gemini style) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button onclick="sendPresetPrompt('Напиши компонент React со сложной логикой состояния и Tailwind оформлением')" class="p-4 rounded-2xl bg-[#14151a] hover:bg-[#1c1d25] border border-slate-800/80 hover:border-purple-500/40 transition-all text-left group">
+                        <div class="text-sm font-semibold text-slate-200 group-hover:text-purple-300 mb-1 flex items-center justify-between">
+                            <span>Создать React компонент</span>
+                            <i class="fa-brands fa-react text-purple-400"></i>
+                        </div>
+                        <div class="text-xs text-slate-400">Сложные UI элементы и хуки</div>
+                    </button>
+                    <button onclick="sendPresetPrompt('Объясни формулу байесовского вывода с LaTeX: $$P(A|B) = \\frac{P(B|A)P(A)}{P(B)}$$')" class="p-4 rounded-2xl bg-[#14151a] hover:bg-[#1c1d25] border border-slate-800/80 hover:border-purple-500/40 transition-all text-left group">
+                        <div class="text-sm font-semibold text-slate-200 group-hover:text-purple-300 mb-1 flex items-center justify-between">
+                            <span>Научные формулы LaTeX</span>
+                            <i class="fa-solid fa-square-root-variable text-emerald-400"></i>
+                        </div>
+                        <div class="text-xs text-slate-400">Математический анализ и расчеты</div>
+                    </button>
+                </div>
+            </div>
+
+            <div id="messages-list" class="space-y-6 hidden">
+            </div>
+        </div>
+
+        <!-- Плавающая панель ввода в стиле ChatGPT/Gemini -->
+        <div class="p-4 bg-gradient-to-t from-[#0e0f12] via-[#0e0f12]/90 to-transparent">
+            <div class="max-w-3xl mx-auto">
+                <form id="chat-form" onsubmit="handleChatSubmit(event)" class="relative flex items-center bg-[#14151a] border border-slate-700/60 rounded-3xl p-2 shadow-2xl focus-within:border-purple-500/80 focus-within:ring-2 focus-within:ring-purple-500/20 transition-all">
+                    <textarea id="user-input" rows="1" placeholder="Введите запрос для AsanGPT..." 
+                        class="w-full bg-transparent border-none py-2.5 pl-4 pr-12 text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none max-h-32"
+                        onkeydown="handleKeyDown(event)" oninput="autoResizeTextarea(this)"></textarea>
+                    
+                    <button type="submit" id="send-btn" class="absolute right-2.5 bottom-2.5 w-9 h-9 rounded-full gemini-gradient-bg text-white flex items-center justify-center transition-all shadow-lg shadow-purple-600/30 active:scale-95 disabled:opacity-50">
+                        <i class="fa-solid fa-arrow-up text-sm"></i>
+                    </button>
+                </form>
+                <div class="text-center mt-2">
+                    <span class="text-[11px] text-slate-500">AsanGPT может допускать ошибки. Проверяйте важный код и математические формулы.</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно настроек -->
+    <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden">
+        <div class="glass-panel w-full max-w-md mx-4 rounded-3xl p-6 space-y-6 shadow-2xl border border-slate-700/50">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <h3 class="font-bold text-lg text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-sliders text-purple-500"></i>
+                    <span>Настройки AsanGPT</span>
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Активный провайдер ИИ</label>
+                    <select id="provider-select" class="w-full bg-[#181920] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-purple-500">
+                        <option value="gemini">Google Gemini API (Flash)</option>
+                        <option value="claude">Anthropic Claude API (Sonnet)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Персональный API Ключ (опционально)</label>
+                    <input type="password" id="api-key-input" placeholder="Введите ключ..." 
+                        class="w-full bg-[#181920] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-purple-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Системный промпт</label>
+                    <textarea id="system-prompt-input" rows="3" 
+                        class="w-full bg-[#181920] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-purple-500 resize-none">Ты — AsanGPT, ультраинтеллектуальный ИИ-гибрид. Пиши чистый код, поясняй решения, используй Markdown и LaTeX.</textarea>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 pt-2 border-t border-slate-800">
+                <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white bg-[#181920] transition-all">Отмена</button>
+                <button onclick="saveSettings()" class="px-5 py-2 rounded-xl text-sm font-medium text-white gemini-gradient-bg transition-all shadow-lg shadow-purple-600/20">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db;
+        let chats = [];
+        let currentChatId = null;
+        let provider = localStorage.getItem('asangpt_provider') || 'gemini';
+        let customApiKey = localStorage.getItem('asangpt_api_key') || '';
+        let systemPrompt = localStorage.getItem('asangpt_system_prompt') || 'Ты — AsanGPT, ультраинтеллектуальный ИИ-гибрид. Пиши чистый код, поясняй решения, используй Markdown и LaTeX.';
+
+        document.getElementById('provider-select').value = provider;
+        document.getElementById('api-key-input').value = customApiKey;
+        document.getElementById('system-prompt-input').value = systemPrompt;
+        updateHeaderModelName();
+
+        function toggleModelDropdown() {
+            const dropdown = document.getElementById('model-dropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        window.addEventListener('click', (e) => {
+            const btn = document.getElementById('model-selector-btn');
+            const dropdown = document.getElementById('model-dropdown');
+            if (btn && dropdown && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        function selectModel(p, name) {
+            provider = p;
+            document.getElementById('provider-select').value = p;
+            localStorage.setItem('asangpt_provider', p);
+            updateHeaderModelName();
+            toggleModelDropdown();
+        }
+
+        function updateHeaderModelName() {
+            const nameEl = document.getElementById('header-model-name');
+            if (provider === 'gemini') {
+                nameEl.textContent = 'Gemini 2.5 Flash';
+            } else {
+                nameEl.textContent = 'Claude 3.5 Sonnet';
+            }
+        }
+
+        function initIndexedDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('AsanGPTDatabaseHybrid', 2);
+                request.onerror = (event) => reject(event.target.error);
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+                    if (!database.objectStoreNames.contains('chats')) {
+                        database.createObjectStore('chats', { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        async function loadChatsFromDB() {
+            return new Promise((resolve, reject) => {
+                if (!db) { resolve([]); return; }
+                const transaction = db.transaction(['chats'], 'readonly');
+                const store = transaction.objectStore('chats');
+                const request = store.getAll();
+                request.onsuccess = () => {
+                    chats = request.result.sort((a, b) => b.updatedAt - a.updatedAt);
+                    resolve(chats);
+                };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        async function saveChatToDB(chat) {
+            return new Promise(async (resolve, reject) => {
+                if (!db) { resolve(); return; }
+                const transaction = db.transaction(['chats'], 'readwrite');
+                const store = transaction.objectStore('chats');
+                chat.updatedAt = Date.now();
+                const request = store.put(chat);
+                request.onsuccess = async () => {
+                    if (window.currentUser && window.firebaseDb) {
+                        try {
+                            const chatRef = window.doc(window.firebaseDb, 'artifacts', window.appId, 'users', window.currentUser.uid, 'chats', chat.id);
+                            await window.setDoc(chatRef, chat);
+                        } catch (err) {
+                            console.error("Cloud sync error:", err);
+                        }
+                    }
+                    resolve();
+                };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        async function deleteChatFromDB(chatId) {
+            return new Promise(async (resolve, reject) => {
+                if (!db) { resolve(); return; }
+                const transaction = db.transaction(['chats'], 'readwrite');
+                const store = transaction.objectStore('chats');
+                const request = store.delete(chatId);
+                request.onsuccess = async () => {
+                    if (window.currentUser && window.firebaseDb) {
+                        try {
+                            const chatRef = window.doc(window.firebaseDb, 'artifacts', window.appId, 'users', window.currentUser.uid, 'chats', chatId);
+                            await window.deleteDoc(chatRef);
+                        } catch (err) {
+                            console.error("Cloud delete error:", err);
+                        }
+                    }
+                    resolve();
+                };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        window.onUserAuthStateChanged = async (user) => {
+            const userNameEl = document.getElementById('user-name');
+            const authBtn = document.getElementById('auth-btn');
+
+            if (user && !user.isAnonymous) {
+                userNameEl.textContent = user.displayName || user.email || 'Пользователь';
+                authBtn.textContent = 'Выйти';
+                authBtn.onclick = logoutGoogle;
+
+                if (window.firebaseDb) {
+                    try {
+                        const chatsRef = window.collection(window.firebaseDb, 'artifacts', window.appId, 'users', user.uid, 'chats');
+                        const snapshot = await window.getDocs(chatsRef);
+                        const cloudChats = [];
+                        snapshot.forEach(docSnap => cloudChats.push(docSnap.data()));
+
+                        if (cloudChats.length > 0) {
+                            for (const c of cloudChats) { await saveChatToDB(c); }
+                            await loadChatsFromDB();
+                            renderHistoryList();
+                            loadCurrentChat();
+                        }
+                    } catch (e) {
+                        console.error("Cloud load error:", e);
+                    }
+                }
+            } else {
+                userNameEl.textContent = 'Гость';
+                authBtn.textContent = 'Войти';
+                authBtn.onclick = toggleGoogleAuth;
+            }
+        };
+
+        async function toggleGoogleAuth() {
+            if (!window.firebaseAuth || !window.GoogleAuthProvider) return;
+            try {
+                const providerObj = new window.GoogleAuthProvider();
+                await window.signInWithPopup(window.firebaseAuth, providerObj);
+            } catch (error) {
+                console.error("Google Auth Error:", error);
+            }
+        }
+
+        async function logoutGoogle() {
+            if (!window.firebaseAuth) return;
+            try {
+                await window.signOut(window.firebaseAuth);
+                window.location.reload();
+            } catch (error) {
+                console.error("Logout Error:", error);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initIndexedDB();
+                await loadChatsFromDB();
+                if (chats.length === 0) {
+                    await startNewChat();
+                } else {
+                    currentChatId = chats[0].id;
+                    renderHistoryList();
+                    loadCurrentChat();
+                }
+            } catch (err) {
+                console.error("Initialization error:", err);
+            }
+        });
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+
+        async function startNewChat() {
+            const newChat = {
+                id: 'chat_' + Date.now(),
+                title: 'Новый диалог',
+                messages: [],
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+            await saveChatToDB(newChat);
+            chats.unshift(newChat);
+            currentChatId = newChat.id;
+            renderHistoryList();
+            loadCurrentChat();
+            if (window.innerWidth < 768) toggleSidebar();
+        }
+
+        function renderHistoryList() {
+            const container = document.getElementById('chat-history-list');
+            container.innerHTML = '';
+            
+            chats.forEach(chat => {
+                const isActive = chat.id === currentChatId;
+                const div = document.createElement('div');
+                div.className = `group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all text-sm font-medium ${isActive ? 'bg-[#1f2029] text-white border border-slate-700/60' : 'text-slate-400 hover:text-slate-200 hover:bg-[#181920]'}`;
+                
+                div.innerHTML = `
+                    <div class="flex items-center space-x-3 truncate flex-1" onclick="switchChat('${chat.id}')">
+                        <i class="fa-regular fa-message text-xs ${isActive ? 'text-purple-400' : 'text-slate-500'}"></i>
+                        <span class="truncate">${escapeHtml(chat.title)}</span>
+                    </div>
+                    <button onclick="deleteChat(event, '${chat.id}')" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-400 p-1 transition-opacity">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function switchChat(id) {
+            currentChatId = id;
+            renderHistoryList();
+            loadCurrentChat();
+            if (window.innerWidth < 768) toggleSidebar();
+        }
+
+        async function deleteChat(event, id) {
+            event.stopPropagation();
+            await deleteChatFromDB(id);
+            chats = chats.filter(c => c.id !== id);
+            if (chats.length === 0) {
+                await startNewChat();
+            } else {
+                if (currentChatId === id) currentChatId = chats[0].id;
+                renderHistoryList();
+                loadCurrentChat();
+            }
+        }
+
+        async function clearCurrentChat() {
+            const chat = chats.find(c => c.id === currentChatId);
+            if (chat) {
+                chat.messages = [];
+                chat.title = 'Новый диалог';
+                await saveChatToDB(chat);
+                renderHistoryList();
+                loadCurrentChat();
+            }
+        }
+
+        function loadCurrentChat() {
+            const chat = chats.find(c => c.id === currentChatId);
+            const welcomeScreen = document.getElementById('welcome-screen');
+            const messagesList = document.getElementById('messages-list');
+
+            if (!chat) return;
+            messagesList.innerHTML = '';
+
+            if (chat.messages.length === 0) {
+                welcomeScreen.classList.remove('hidden');
+                messagesList.classList.add('hidden');
+            } else {
+                welcomeScreen.classList.add('hidden');
+                messagesList.classList.remove('hidden');
+                chat.messages.forEach(msg => appendMessageElement(msg.role, msg.content));
+            }
+            scrollToBottom();
+        }
+
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+            }
+        }
+
+        function sendPresetPrompt(text) {
+            document.getElementById('user-input').value = text;
+            document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+        }
+
+        async function handleChatSubmit(event) {
+            event.preventDefault();
+            const inputEl = document.getElementById('user-input');
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            inputEl.value = '';
+            inputEl.style.height = 'auto';
+
+            const chat = chats.find(c => c.id === currentChatId);
+            if (!chat) return;
+
+            if (chat.messages.length === 0) {
+                chat.title = text.length > 30 ? text.substring(0, 30) + '...' : text;
+                renderHistoryList();
+            }
+
+            chat.messages.push({ role: 'user', content: text });
+            await saveChatToDB(chat);
+
+            document.getElementById('welcome-screen').classList.add('hidden');
+            const messagesList = document.getElementById('messages-list');
+            messagesList.classList.remove('hidden');
+
+            appendMessageElement('user', text);
+            scrollToBottom();
+
+            const loadingId = 'loading_' + Date.now();
+            appendLoadingElement(loadingId);
+            scrollToBottom();
+
+            try {
+                let aiResponse;
+                if (provider === 'claude') {
+                    aiResponse = await callClaudeAPI(chat.messages);
+                } else {
+                    aiResponse = await callGeminiAPI(chat.messages);
+                }
+
+                removeLoadingElement(loadingId);
+                chat.messages.push({ role: 'model', content: aiResponse });
+                await saveChatToDB(chat);
+                appendMessageElement('model', aiResponse);
+                scrollToBottom();
+            } catch (error) {
+                removeLoadingElement(loadingId);
+                const errorMsg = 'Ошибка генерации: ' + error.message;
+                chat.messages.push({ role: 'model', content: errorMsg });
+                await saveChatToDB(chat);
+                appendMessageElement('model', errorMsg);
+                scrollToBottom();
+            }
+        }
+
+        async function callClaudeAPI(messagesHistory) {
+            const apiKey = customApiKey || "";
+            const apiUrl = "https://api.anthropic.com/v1/messages";
+            const formattedMessages = messagesHistory.map(m => ({
+                role: m.role === 'user' ? 'user' : 'assistant',
+                content: m.content
+            }));
+            const payload = {
+                model: "claude-3-5-sonnet-20241022",
+                max_tokens: 4096,
+                system: systemPrompt,
+                messages: formattedMessages
+            };
+
+            let response;
+            let attempts = 0;
+            let delay = 1000;
+            while (attempts < 3) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': apiKey,
+                            'anthropic-version': '2023-06-01',
+                            'anthropic-dangerous-direct-browser-access': 'true'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) break;
+                } catch (e) {}
+                attempts++;
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2;
+            }
+
+            const result = await response.json();
+            if (result.content && result.content[0]?.text) {
+                return result.content[0].text;
+            } else {
+                throw new Error(result.error?.message || 'Ошибка Claude API');
+            }
+        }
+
+        async function callGeminiAPI(messagesHistory) {
+            const apiKey = customApiKey || "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const formattedContents = messagesHistory.map(m => ({
+                role: m.role === 'user' ? 'user' : 'model',
+                parts: [{ text: m.content }]
+            }));
+            const payload = {
+                contents: formattedContents,
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
+
+            let response;
+            let attempts = 0;
+            let delay = 1000;
+            while (attempts < 4) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) break;
+                } catch (e) {}
+                attempts++;
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2;
+            }
+
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+            if (candidate && candidate.content?.parts?.[0]?.text) {
+                return candidate.content.parts[0].text;
+            } else {
+                throw new Error('Ошибка Gemini API');
+            }
+        }
+
+        function appendMessageElement(role, text) {
+            const messagesList = document.getElementById('messages-list');
+            const isUser = role === 'user';
+            
+            const div = document.createElement('div');
+            div.className = `flex items-start space-x-3.5 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = `w-8 h-8 rounded-2xl flex items-center justify-center flex-shrink-0 text-white shadow-md ${isUser ? 'bg-slate-700' : 'gemini-gradient-bg shadow-purple-500/20'}`;
+            avatar.innerHTML = isUser ? '<i class="fa-solid fa-user text-xs"></i>' : '<i class="fa-solid fa-sparkles text-xs"></i>';
+
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = `flex-1 max-w-[85%] sm:max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed markdown-body ${isUser ? 'bg-[#1f202a] text-slate-100 rounded-tr-sm border border-slate-700/60' : 'bg-[#14151a] text-slate-200 rounded-tl-sm border border-slate-800/80 shadow-lg'}`;
+            
+            if (isUser) {
+                contentWrapper.textContent = text;
+            } else {
+                contentWrapper.innerHTML = marked.parse(text);
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise([contentWrapper]).catch((err) => console.log(err));
+                }
+            }
+
+            div.appendChild(avatar);
+            div.appendChild(contentWrapper);
+            messagesList.appendChild(div);
+        }
+
+        function appendLoadingElement(id) {
+            const messagesList = document.getElementById('messages-list');
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = 'flex items-start space-x-3.5';
+            div.innerHTML = `
+                <div class="w-8 h-8 rounded-2xl gemini-gradient-bg flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-purple-500/20">
+                    <i class="fa-solid fa-sparkles text-xs"></i>
+                </div>
+                <div class="bg-[#14151a] border border-slate-800/80 text-slate-200 rounded-2xl rounded-tl-sm px-4 py-3 text-sm flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-purple-500 animate-bounce"></span>
+                    <span class="w-2 h-2 rounded-full bg-blue-500 animate-bounce [animation-delay:0.2s]"></span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:0.4s]"></span>
+                </div>
+            `;
+            messagesList.appendChild(div);
+        }
+
+        function removeLoadingElement(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        function saveSettings() {
+            provider = document.getElementById('provider-select').value;
+            customApiKey = document.getElementById('api-key-input').value.trim();
+            systemPrompt = document.getElementById('system-prompt-input').value.trim() || systemPrompt;
+            
+            localStorage.setItem('asangpt_provider', provider);
+            localStorage.setItem('asangpt_api_key', customApiKey);
+            localStorage.setItem('asangpt_system_prompt', systemPrompt);
+            
+            updateHeaderModelName();
+            closeSettingsModal();
+        }
+    </script>
+</body>
+</html>
